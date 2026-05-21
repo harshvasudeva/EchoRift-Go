@@ -1,0 +1,106 @@
+name: Release Windows executable
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - VERSION
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    name: Build and release Windows exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$') {
+            throw "VERSION must be a semantic version, got '$version'"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+
+      - name: Check release tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          git ls-remote --exit-code --tags origin "refs/tags/$tag"
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+          exit 0
+
+      - name: Stop if version was already released
+        if: steps.tag.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "Tag ${{ steps.version.outputs.tag }} already exists; nothing to release."
+
+      - name: Set up Go
+        if: steps.tag.outputs.exists != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Node
+        if: steps.tag.outputs.exists != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        if: steps.tag.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.1.3 --activate
+          corepack pnpm install --frozen-lockfile
+
+      - name: Build signed Windows executable
+        if: steps.tag.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File .\deploy\scripts\build_sign_windows.ps1
+
+      - name: Package executable
+        if: steps.tag.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item bin\echorift.exe "dist\echorift-${{ steps.version.outputs.version }}-windows-amd64.exe"
+
+      - name: Create release tag
+        if: steps.tag.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Publish GitHub release
+        if: steps.tag.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: EchoRift ${{ steps.version.outputs.tag }}
+          files: dist/echorift-${{ steps.version.outputs.version }}-windows-amd64.exe
+          generate_release_notes: true

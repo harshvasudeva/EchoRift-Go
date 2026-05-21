@@ -39,3 +39,9 @@ This repo uses pnpm through Corepack:
 corepack pnpm install
 corepack pnpm --filter @echorift/web dev
 ```
+
+## Releases
+
+Update the root `VERSION` file with a new semantic version and push to `main`.
+GitHub Actions builds `echorift.exe`, creates tag `v<version>`, and publishes a
+GitHub Release with the Windows executable attached.
