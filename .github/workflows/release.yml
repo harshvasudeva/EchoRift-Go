@@ -74,9 +74,11 @@ jobs:
           corepack prepare pnpm@11.1.3 --activate
           corepack pnpm install --frozen-lockfile
 
-      - name: Build signed Windows executable
+      - name: Build Windows executable
         if: steps.tag.outputs.exists != 'true'
         shell: pwsh
+        env:
+          ECHORIFT_SKIP_SIGNING: "1"
         run: |
           powershell -ExecutionPolicy Bypass -File .\deploy\scripts\build_sign_windows.ps1
 

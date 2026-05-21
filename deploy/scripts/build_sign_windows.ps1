@@ -9,6 +9,7 @@ $embedDist = Join-Path $repoRoot 'backend\internal\web\dist'
 $binDir = Join-Path $repoRoot 'bin'
 $outExe = Join-Path $binDir 'echorift.exe'
 $certExportPath = Join-Path $env:TEMP 'EchoRiftLocalDev.cer'
+$skipSigning = $env:ECHORIFT_SKIP_SIGNING -eq '1'
 
 New-Item -ItemType Directory -Force $binDir | Out-Null
 
@@ -58,7 +59,6 @@ function Get-OrCreate-CodeSigningCert {
 }
 
 $go = Get-GoCommand
-$cert = Get-OrCreate-CodeSigningCert
 
 Write-Host "Using Go: $go"
 & $go version
@@ -84,6 +84,13 @@ Write-Host "Building backend + embedded web to $outExe"
 if ($LASTEXITCODE -ne 0) {
   throw 'Go build failed.'
 }
+
+if ($skipSigning) {
+  Write-Host "Unsigned executable ready: $outExe"
+  return
+}
+
+$cert = Get-OrCreate-CodeSigningCert
 
 Write-Host 'Signing backend executable...'
 $signature = Set-AuthenticodeSignature `
