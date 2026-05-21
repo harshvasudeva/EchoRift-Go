@@ -1,0 +1,38 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.local.yaml
+!*.example.yaml
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Go
+bin/
+dist/
+*.exe
+*.test
+coverage.out
+
+# Node
+node_modules/
+apps/web/dist/
+apps/desktop/dist/
+.pnpm-store/
+*.tsbuildinfo
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
+
+# Logs
+*.log
+logs/
+
+# Local uploads
+uploads/
